@@ -40,12 +40,14 @@ impl fmt::Display for ByteVec {
 
 impl Arbitrary for ByteVec {
     fn arbitrary(g: &mut Gen) -> Self {
-        // The mutated code path only fires when the input length is an exact
-        // multiple of the 64-byte SIMD chunk AND the trailing byte of the
-        // final chunk is a UTF-8 leading byte (0xC0..=0xFF). Random byte
-        // vectors almost never satisfy that shape, so heavily bias toward
-        // producing boundary-aligned inputs. The remaining 1/4 weight keeps
-        // some random baseline coverage.
+        // The mutated code path only fires when the WHOLE input parses as
+        // valid UTF-8 up to the last byte and the last byte is an unfinished
+        // UTF-8 leader (0xC0..=0xFF) sitting at the end of an exact 64-byte
+        // SIMD chunk. If the prefix contains any non-ASCII or continuation
+        // byte, `check_bytes` catches the error directly and the missing
+        // `check_incomplete_pending` call is never load-bearing. We therefore
+        // bias strongly toward `ASCII × (64k-1) ++ lead_byte` inputs. A
+        // random baseline keeps some coverage for unrelated properties.
         let roll: u8 = g.random_range(0u8..4u8);
         if roll != 0 {
             let k = g.random_range(1usize..=3);
@@ -53,7 +55,8 @@ impl Arbitrary for ByteVec {
             let tail: u8 = g.random_range(0xC0u8..=0xFFu8);
             let mut v: Vec<u8> = Vec::with_capacity(n);
             for _ in 0..(n - 1) {
-                v.push(u8::arbitrary(g));
+                // ASCII (0x00..=0x7F) keeps the prefix valid UTF-8.
+                v.push(g.random_range(0u8..=0x7Fu8));
             }
             v.push(tail);
             ByteVec(v)
@@ -148,17 +151,18 @@ fn run_etna_property(property: &str) -> Outcome {
 
 // ---- proptest ----
 
-// Produce byte vectors biased toward the input shape that triggers the
-// `check_incomplete_pending` mutation: length == multiple of 64, last byte
-// is a UTF-8 leading byte (0xC0..=0xFF). A random baseline keeps coverage
-// for unrelated properties.
+// Produce byte vectors biased toward the shape that triggers the
+// `check_incomplete_pending` mutation: ASCII prefix (so std::str::from_utf8
+// accepts the prefix), length == multiple of 64, last byte is a UTF-8
+// leading byte (0xC0..=0xFF). A random baseline keeps broad coverage.
 fn byte_vec_strategy() -> BoxedStrategy<Vec<u8>> {
     prop_oneof![
-        // Boundary-aligned (weight 6): 64/128/192 bytes, trailing 0xC0..=0xFF.
+        // Boundary-aligned with ASCII prefix (weight 6): 64/128/192 bytes,
+        // trailing 0xC0..=0xFF, everything else 0x00..=0x7F.
         6 => (1usize..=3, 0xC0u8..=0xFFu8)
             .prop_flat_map(|(k, tail)| {
                 let n = k * 64;
-                prop::collection::vec(any::<u8>(), n - 1..n).prop_map(move |mut prefix| {
+                prop::collection::vec(0u8..=0x7Fu8, n - 1..n).prop_map(move |mut prefix| {
                     prefix.truncate(n - 1);
                     prefix.push(tail);
                     prefix
@@ -312,7 +316,8 @@ impl<R: Rng> crabcheck_qc::Arbitrary<R> for BiasedBytes {
             let tail: u8 = rng.random_range(0xC0u8..=0xFFu8);
             let mut v = Vec::with_capacity(n);
             for _ in 0..(n - 1) {
-                v.push(rng.random());
+                // ASCII keeps the prefix valid UTF-8.
+                v.push(rng.random_range(0u8..=0x7Fu8));
             }
             v.push(tail);
             BiasedBytes(v)
@@ -413,8 +418,9 @@ fn run_hegel_property(property: &str) -> Outcome {
         if roll != 0 {
             let k: usize = tc.draw(hgen::integers::<usize>().min_value(1).max_value(3));
             let n = k * 64;
+            // ASCII prefix keeps the bytes 0..n-1 valid UTF-8.
             let mut v: Vec<u8> = tc.draw(
-                hgen::vecs(hgen::integers::<u8>())
+                hgen::vecs(hgen::integers::<u8>().min_value(0).max_value(0x7F))
                     .min_size(n - 1)
                     .max_size(n - 1),
             );
