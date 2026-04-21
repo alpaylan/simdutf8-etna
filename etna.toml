@@ -1,0 +1,33 @@
+name = "simdutf8"
+language = "Rust"
+
+[workload]
+name = "simdutf8"
+crate = "simdutf8"
+description = "SIMD-accelerated UTF-8 validation (`basic::from_utf8` / `compat::from_utf8`) — ETNA workload."
+
+[[variant]]
+name = "incomplete_eof_basic_8c24752_1"
+property = "property_basic_matches_std"
+injection = "marauders"
+marker = "incomplete_eof_basic"
+source_commit = "8c247522cd4d4a07031170dfb7f9b0161c725d2a"
+files = ["src/implementation/algorithm.rs"]
+frameworks = ["proptest", "quickcheck", "crabcheck", "hegel"]
+witnesses = [
+    "witness_incomplete_eof_basic_case_f0_aligned",
+    "witness_incomplete_eof_basic_case_c0_aligned",
+]
+
+[[variant]]
+name = "incomplete_eof_compat_8c24752_2"
+property = "property_compat_matches_std"
+injection = "marauders"
+marker = "incomplete_eof_compat"
+source_commit = "8c247522cd4d4a07031170dfb7f9b0161c725d2a"
+files = ["src/implementation/algorithm.rs"]
+frameworks = ["proptest", "quickcheck", "crabcheck", "hegel"]
+witnesses = [
+    "witness_incomplete_eof_compat_case_f0_aligned",
+    "witness_incomplete_eof_compat_case_c0_aligned",
+]

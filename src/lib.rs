@@ -138,4 +138,6 @@
 
 pub mod basic;
 pub mod compat;
+#[doc(hidden)]
+pub mod etna;
 mod implementation;

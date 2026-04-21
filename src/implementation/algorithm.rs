@@ -243,7 +243,13 @@ macro_rules! algorithm_simd {
                 let simd_input = SimdInput::new_partial(input.as_ptr().add(idx), len-idx);
                 algorithm.check_utf8(simd_input);
             }
+            /*| incomplete_eof_basic [etna] */
             algorithm.check_incomplete_pending();
+            /*|| incomplete_eof_basic_8c24752_1 */
+            /*|
+            // missing check_incomplete_pending — mirrors pre-8c24752 state
+            */
+            /* |*/
             if algorithm.has_error() {
                 Err(basic::Utf8Error {})
             } else {
@@ -329,7 +335,13 @@ macro_rules! algorithm_simd {
                 let simd_input = SimdInput::new_partial(input.as_ptr().add(idx), len-idx);
                 algorithm.check_utf8(simd_input);
             }
+            /*| incomplete_eof_compat [etna] */
             algorithm.check_incomplete_pending();
+            /*|| incomplete_eof_compat_8c24752_2 */
+            /*|
+            // missing check_incomplete_pending — mirrors pre-8c24752 state
+            */
+            /* |*/
             if algorithm.has_error() {
                 Err(idx)
             } else {

@@ -1,0 +1,11 @@
+{"ts":"2026-04-21T07:37:15Z","stage":"discover","event":"start"}
+{"ts": "2026-04-21T07:38:20Z", "stage": "discover", "event": "candidate", "hash": "8c24752", "subject": "fix: check for incomplete bytes at end + tests", "files": 4, "hunks": 4}
+{"ts": "2026-04-21T07:38:20Z", "stage": "discover", "event": "candidate", "hash": "04e1de4", "subject": "fix: buffer needs to be reinitialized if it is reused", "files": 1, "hunks": 2}
+{"ts": "2026-04-21T07:38:20Z", "stage": "discover", "event": "candidate", "hash": "01373c5", "subject": "fix check remainder only if present", "files": 1, "hunks": 1}
+{"ts": "2026-04-21T07:38:20Z", "stage": "discover", "event": "done", "commits_scanned": 1107, "fix_commits": 3}
+{"ts":"2026-04-21T07:51:57Z","stage":"runner","event":"base_check_all_frameworks_passed","etna":"2/2","proptest":"512/All","quickcheck":"400/All","crabcheck":"40000/All","hegel":"452/All"}
+{"ts":"2026-04-21T08:02:07Z","stage":"atomize","event":"start","total_candidates":2}
+{"ts":"2026-04-21T08:02:07Z","stage":"atomize","event":"variant_start","name":"incomplete_eof_basic_8c24752_1","hash":"8c24752","i":1,"of":2}
+{"ts":"2026-04-21T08:02:07Z","stage":"atomize","event":"variant_detected","name":"incomplete_eof_basic_8c24752_1","i":1,"of":2,"injection":"marauders"}
+{"ts":"2026-04-21T08:02:07Z","stage":"atomize","event":"variant_start","name":"incomplete_eof_compat_8c24752_2","hash":"8c24752","i":2,"of":2}
+{"ts":"2026-04-21T08:02:07Z","stage":"atomize","event":"variant_detected","name":"incomplete_eof_compat_8c24752_2","i":2,"of":2,"injection":"marauders"}
