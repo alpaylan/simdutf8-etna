@@ -16,3 +16,11 @@
 {"ts":"2026-04-21T08:05:57Z","stage":"document","event":"done","bugs_md":"BUGS.md","tasks_md":"TASKS.md","total_tasks":8}
 {"ts":"2026-04-21T08:06:12Z","stage":"validate","event":"start"}
 {"ts":"2026-04-21T08:14:49Z","stage":"runner","event":"generators_biased_for_boundary_inputs","frameworks":["proptest","quickcheck","crabcheck","hegel"],"bias":"6:1 boundary-aligned 64*k bytes + 0xC0..=0xFF tail vs random baseline"}
+{"ts":"2026-04-21T08:19:54Z","stage":"validate","event":"base_runner_smoke","framework_results":{"etna":"passed/1","proptest":"passed/256","quickcheck":"passed/200","crabcheck":"passed/20000","hegel":"passed/206"}}
+{"ts":"2026-04-21T08:19:54Z","stage":"validate","event":"variant_runner_smoke","variant":"incomplete_eof_basic_8c24752_1","property":"BasicMatchesStd","detected_by":["etna","proptest","quickcheck","crabcheck","hegel"]}
+{"ts":"2026-04-21T08:19:54Z","stage":"validate","event":"variant_runner_smoke","variant":"incomplete_eof_compat_8c24752_2","property":"CompatMatchesStd","detected_by":["etna","proptest","quickcheck","crabcheck","hegel"]}
+{"ts":"2026-04-21T08:19:54Z","stage":"validate","event":"witnesses","base":"4/4 pass","etna/incomplete_eof_basic_8c24752_1":"basic 0/2 pass; compat 2/2 pass (negative control)","etna/incomplete_eof_compat_8c24752_2":"compat 0/2 pass; basic 2/2 pass (negative control)"}
+{"ts":"2026-04-21T08:20:16Z","stage":"validate","event":"docs_consistency","variants":2,"tasks":8,"witnesses":4,"frameworks":4,"2x4_eq_tasks":true}
+{"ts":"2026-04-21T08:20:16Z","stage":"validate","event":"commits_shape","base":"95665a7","variant_1":{"ahead":1,"behind":0,"files":1},"variant_2":{"ahead":1,"behind":0,"files":1}}
+{"ts":"2026-04-21T08:20:16Z","stage":"validate","event":"no_placeholders","checked":["etna.toml","BUGS.md","TASKS.md","src/bin/etna.rs","src/etna.rs","tests/etna_witnesses.rs"]}
+{"ts":"2026-04-21T08:20:16Z","stage":"validate","event":"all_checks_passed","variants":2,"tasks":8}
