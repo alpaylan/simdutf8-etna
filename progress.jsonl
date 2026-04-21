@@ -14,3 +14,5 @@
 {"ts":"2026-04-21T08:04:34Z","stage":"atomize","event":"done","committed":2,"skipped":0}
 {"ts":"2026-04-21T08:05:57Z","stage":"document","event":"start"}
 {"ts":"2026-04-21T08:05:57Z","stage":"document","event":"done","bugs_md":"BUGS.md","tasks_md":"TASKS.md","total_tasks":8}
+{"ts":"2026-04-21T08:06:12Z","stage":"validate","event":"start"}
+{"ts":"2026-04-21T08:14:49Z","stage":"runner","event":"generators_biased_for_boundary_inputs","frameworks":["proptest","quickcheck","crabcheck","hegel"],"bias":"6:1 boundary-aligned 64*k bytes + 0xC0..=0xFF tail vs random baseline"}

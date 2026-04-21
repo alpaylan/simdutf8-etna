@@ -13,6 +13,7 @@ use crabcheck::quickcheck as crabcheck_qc;
 use proptest::prelude::*;
 use proptest::test_runner::{Config as ProptestConfig, TestCaseError, TestRunner};
 use quickcheck::{Arbitrary, Gen, QuickCheck, ResultStatus, TestResult};
+use rand::Rng;
 use simdutf8::etna::{property_basic_matches_std, property_compat_matches_std, PropertyResult};
 use std::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -39,17 +40,35 @@ impl fmt::Display for ByteVec {
 
 impl Arbitrary for ByteVec {
     fn arbitrary(g: &mut Gen) -> Self {
-        // Forked QuickCheck::quicktest seeds Gen::set_size via `log2(iter)`,
-        // so early iterations hand in size=0, which makes Vec::arbitrary's
-        // `random_range(0..size)` panic with "cannot sample empty range".
-        // Cap at >= 1.
-        let size = g.size().max(1);
-        let len = g.random_range(0..size);
-        let mut v: Vec<u8> = Vec::with_capacity(len);
-        for _ in 0..len {
-            v.push(u8::arbitrary(g));
+        // The mutated code path only fires when the input length is an exact
+        // multiple of the 64-byte SIMD chunk AND the trailing byte of the
+        // final chunk is a UTF-8 leading byte (0xC0..=0xFF). Random byte
+        // vectors almost never satisfy that shape, so heavily bias toward
+        // producing boundary-aligned inputs. The remaining 1/4 weight keeps
+        // some random baseline coverage.
+        let roll: u8 = g.random_range(0u8..4u8);
+        if roll != 0 {
+            let k = g.random_range(1usize..=3);
+            let n = k * 64;
+            let tail: u8 = g.random_range(0xC0u8..=0xFFu8);
+            let mut v: Vec<u8> = Vec::with_capacity(n);
+            for _ in 0..(n - 1) {
+                v.push(u8::arbitrary(g));
+            }
+            v.push(tail);
+            ByteVec(v)
+        } else {
+            // Forked QuickCheck::quicktest seeds Gen::set_size via log2(iter),
+            // which can yield 0 on the first iteration. `random_range(0..0)`
+            // panics — clamp.
+            let size = g.size().max(1);
+            let len = g.random_range(0..size);
+            let mut v: Vec<u8> = Vec::with_capacity(len);
+            for _ in 0..len {
+                v.push(u8::arbitrary(g));
+            }
+            ByteVec(v)
         }
-        ByteVec(v)
     }
 
     fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
@@ -129,20 +148,24 @@ fn run_etna_property(property: &str) -> Outcome {
 
 // ---- proptest ----
 
-// Produce byte vectors that frequently probe boundary cases (<, =, > SIMD
-// chunk size) and include non-ASCII leading bytes so that the mutated
-// end-of-input path is exercised within the configured test budget.
+// Produce byte vectors biased toward the input shape that triggers the
+// `check_incomplete_pending` mutation: length == multiple of 64, last byte
+// is a UTF-8 leading byte (0xC0..=0xFF). A random baseline keeps coverage
+// for unrelated properties.
 fn byte_vec_strategy() -> BoxedStrategy<Vec<u8>> {
     prop_oneof![
-        prop::collection::vec(any::<u8>(), 0..256),
-        // Occasionally end with a UTF-8 leading byte so the "incomplete at
-        // end" path has more chances of being hit.
-        prop::collection::vec(any::<u8>(), 60..68).prop_map(|mut v| {
-            if let Some(last) = v.last_mut() {
-                *last |= 0xC0;
-            }
-            v
-        }),
+        // Boundary-aligned (weight 6): 64/128/192 bytes, trailing 0xC0..=0xFF.
+        6 => (1usize..=3, 0xC0u8..=0xFFu8)
+            .prop_flat_map(|(k, tail)| {
+                let n = k * 64;
+                prop::collection::vec(any::<u8>(), n - 1..n).prop_map(move |mut prefix| {
+                    prefix.truncate(n - 1);
+                    prefix.push(tail);
+                    prefix
+                })
+            }),
+        // Random baseline (weight 1): any 0..256-byte vector.
+        1 => prop::collection::vec(any::<u8>(), 0..256),
     ]
     .boxed()
 }
@@ -268,18 +291,54 @@ fn run_quickcheck_property(property: &str) -> Outcome {
 
 static CC_COUNTER: AtomicU64 = AtomicU64::new(0);
 
-fn cc_basic_matches_std(input: Vec<u8>) -> Option<bool> {
+/// Boundary-biased Vec<u8> newtype for crabcheck. Default `Vec<u8>`
+/// generation produces effectively zero boundary-aligned inputs, so we
+/// implement our own `Arbitrary` that mirrors the quickcheck bias.
+#[derive(Clone)]
+struct BiasedBytes(Vec<u8>);
+
+impl fmt::Debug for BiasedBytes {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self.0)
+    }
+}
+
+impl<R: Rng> crabcheck_qc::Arbitrary<R> for BiasedBytes {
+    fn generate(rng: &mut R, _n: usize) -> BiasedBytes {
+        let roll: u8 = rng.random_range(0u8..4u8);
+        if roll != 0 {
+            let k: usize = rng.random_range(1usize..=3);
+            let n = k * 64;
+            let tail: u8 = rng.random_range(0xC0u8..=0xFFu8);
+            let mut v = Vec::with_capacity(n);
+            for _ in 0..(n - 1) {
+                v.push(rng.random());
+            }
+            v.push(tail);
+            BiasedBytes(v)
+        } else {
+            let len: usize = rng.random_range(0usize..256);
+            let mut v = Vec::with_capacity(len);
+            for _ in 0..len {
+                v.push(rng.random());
+            }
+            BiasedBytes(v)
+        }
+    }
+}
+
+fn cc_basic_matches_std(input: BiasedBytes) -> Option<bool> {
     CC_COUNTER.fetch_add(1, Ordering::Relaxed);
-    match property_basic_matches_std(input) {
+    match property_basic_matches_std(input.0) {
         PropertyResult::Pass => Some(true),
         PropertyResult::Fail(_) => Some(false),
         PropertyResult::Discard => None,
     }
 }
 
-fn cc_compat_matches_std(input: Vec<u8>) -> Option<bool> {
+fn cc_compat_matches_std(input: BiasedBytes) -> Option<bool> {
     CC_COUNTER.fetch_add(1, Ordering::Relaxed);
-    match property_compat_matches_std(input) {
+    match property_compat_matches_std(input.0) {
         PropertyResult::Pass => Some(true),
         PropertyResult::Fail(_) => Some(false),
         PropertyResult::Discard => None,
@@ -296,11 +355,11 @@ fn run_crabcheck_property(property: &str) -> Outcome {
     let result = match property {
         "BasicMatchesStd" => crabcheck_qc::quickcheck_with_config(
             cfg,
-            cc_basic_matches_std as fn(Vec<u8>) -> Option<bool>,
+            cc_basic_matches_std as fn(BiasedBytes) -> Option<bool>,
         ),
         "CompatMatchesStd" => crabcheck_qc::quickcheck_with_config(
             cfg,
-            cc_compat_matches_std as fn(Vec<u8>) -> Option<bool>,
+            cc_compat_matches_std as fn(BiasedBytes) -> Option<bool>,
         ),
         _ => {
             return (
@@ -338,19 +397,45 @@ fn hegel_settings() -> hegel::Settings {
 }
 
 fn run_hegel_property(property: &str) -> Outcome {
-    use hegel::{generators as hgen, Hegel, TestCase};
+    use hegel::{Hegel, TestCase};
     if property == "All" {
         return run_all(run_hegel_property);
     }
     HG_COUNTER.store(0, Ordering::Relaxed);
     let t0 = Instant::now();
     let settings = hegel_settings();
+    // Boundary-biased draw: ~3/4 of test cases are exactly 64*k bytes with a
+    // trailing UTF-8 leading byte, which is the shape that reaches the
+    // mutated path. Remaining 1/4 keeps a random baseline.
+    fn draw_biased_bytes(tc: &hegel::TestCase) -> Vec<u8> {
+        use hegel::generators as hgen;
+        let roll: u8 = tc.draw(hgen::integers::<u8>().min_value(0).max_value(3));
+        if roll != 0 {
+            let k: usize = tc.draw(hgen::integers::<usize>().min_value(1).max_value(3));
+            let n = k * 64;
+            let mut v: Vec<u8> = tc.draw(
+                hgen::vecs(hgen::integers::<u8>())
+                    .min_size(n - 1)
+                    .max_size(n - 1),
+            );
+            let tail: u8 = tc.draw(
+                hgen::integers::<u8>().min_value(0xC0).max_value(0xFF),
+            );
+            v.push(tail);
+            v
+        } else {
+            tc.draw(
+                hgen::vecs(hgen::integers::<u8>())
+                    .min_size(0)
+                    .max_size(256),
+            )
+        }
+    }
     let run_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match property {
         "BasicMatchesStd" => {
             Hegel::new(|tc: TestCase| {
                 HG_COUNTER.fetch_add(1, Ordering::Relaxed);
-                let input: Vec<u8> =
-                    tc.draw(hgen::vecs(hgen::integers::<u8>()).min_size(0).max_size(200));
+                let input: Vec<u8> = draw_biased_bytes(&tc);
                 let cex = format!("({:?})", input);
                 let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                     property_basic_matches_std(input.clone())
@@ -366,8 +451,7 @@ fn run_hegel_property(property: &str) -> Outcome {
         "CompatMatchesStd" => {
             Hegel::new(|tc: TestCase| {
                 HG_COUNTER.fetch_add(1, Ordering::Relaxed);
-                let input: Vec<u8> =
-                    tc.draw(hgen::vecs(hgen::integers::<u8>()).min_size(0).max_size(200));
+                let input: Vec<u8> = draw_biased_bytes(&tc);
                 let cex = format!("({:?})", input);
                 let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                     property_compat_matches_std(input.clone())

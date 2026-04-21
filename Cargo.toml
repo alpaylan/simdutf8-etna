@@ -61,6 +61,7 @@ proptest = "1.0"
 quickcheck = { path = "/Users/akeles/Programming/projects/PbtBenchmark/quickcheck", features = ["etna"] }
 crabcheck = { path = "/Users/akeles/Programming/projects/PbtBenchmark/crabcheck" }
 hegeltest = "0.3.7"
+rand = "0.9"
 
 [build-dependencies]
 rustversion = "1.0.22"
