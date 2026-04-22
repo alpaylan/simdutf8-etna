@@ -6,3 +6,7 @@
 /.zed
 /.cargo
 /.hegel
+/.marauders
+/.migration-cache
+/etna.log
+/progress.jsonl
