@@ -1,6 +1,7 @@
 name = "simdutf8"
 description = "SIMD-accelerated UTF-8 validation (`basic::from_utf8` / `compat::from_utf8`) — ETNA workload."
 language = "rust"
+strategies = ["proptest", "quickcheck", "crabcheck", "hegel"]
 crate = "simdutf8"
 base_commit = "95665a71c757f84a743a995ca7340d5a64240ba1"
 
