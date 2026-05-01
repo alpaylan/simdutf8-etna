@@ -1,0 +1,13 @@
+# marauders: name=incomplete_eof_basic tags=[etna]
+diff --git a/src/implementation/algorithm.rs b/src/implementation/algorithm.rs
+--- a/src/implementation/algorithm.rs
++++ b/src/implementation/algorithm.rs
+@@ -243,7 +243,7 @@
+                 let simd_input = SimdInput::new_partial(input.as_ptr().add(idx), len-idx);
+                 algorithm.check_utf8(simd_input);
+             }
+-            algorithm.check_incomplete_pending();
++            // missing check_incomplete_pending — mirrors pre-8c24752 state
+             if algorithm.has_error() {
+                 Err(basic::Utf8Error {})
+             } else {

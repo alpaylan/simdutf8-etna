@@ -15,7 +15,8 @@ commit_subjects = ["fix: check for incomplete bytes at end + tests"]
 summary = "`Utf8CheckAlgorithm::check_block` tracked an `incomplete` SIMD mask for trailing multi-byte leaders but never folded it back into `error` after the last SIMD chunk. Inputs whose only UTF-8 flaw was a missing continuation byte past that chunk slipped through as valid. The fix adds the post-loop `check_incomplete_pending` call in both the basic and compat code paths."
 
 [tasks.injection]
-kind = "marauders"
+kind = "patch"
+patch = "patches/incomplete_eof_basic_8c24752_1.patch"
 files = ["src/implementation/algorithm.rs"]
 locations = [{ file = "src/implementation/algorithm.rs" }]
 
@@ -41,7 +42,8 @@ commit_subjects = ["fix: check for incomplete bytes at end + tests"]
 summary = "`Utf8CheckAlgorithm::check_block` tracked an `incomplete` SIMD mask for trailing multi-byte leaders but never folded it back into `error` after the last SIMD chunk. Inputs whose only UTF-8 flaw was a missing continuation byte past that chunk slipped through as valid. The fix adds the post-loop `check_incomplete_pending` call in both the basic and compat code paths."
 
 [tasks.injection]
-kind = "marauders"
+kind = "patch"
+patch = "patches/incomplete_eof_compat_8c24752_2.patch"
 files = ["src/implementation/algorithm.rs"]
 locations = [{ file = "src/implementation/algorithm.rs" }]
 
